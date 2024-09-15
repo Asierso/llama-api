@@ -1,6 +1,8 @@
 package com.asierso.llamaapi.models;
 
 public class LlamaMessage {
+    public static final String USER_ROLE = "user";
+    public static final String ASSISTANT_ROLE = "assistant";
     private String role;
     private String content;
 

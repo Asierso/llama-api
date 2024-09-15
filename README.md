@@ -29,7 +29,10 @@ String response = connection.fetch(new LlamaPromptsBuilder(requestBase)
 
 ### Have a conversation dialog
 You can create a thread of prompts and answers that would be processed by Ollama like a conversation format using the following lines
+
 ```java
+import com.asierso.llamaapi.models.LlamaMessage;
+
 //Declare the connection with Ollama service
 LlamaConnection connection = new LlamaConnection("http://localhost:11434");
 
@@ -41,7 +44,7 @@ LlamaRequestBase requestBase = new LlamaRequestBaseBuilder()
 
 //Make the request with specified dialogue and get the content of the last message
 String response = connection.fetch(new LlamaDialogsBuilder(requestBase)
-        .createDialog("assistant","Hey my friend. Lets go for a walk, shall we?")
-        .createDialog("user","Yes. But want to hug you, can I?")
+        .createDialog(LlamaMessage.ASSISTANT_ROLE, "Hey my friend. Lets go for a walk, shall we?")
+        .createDialog(LlamaMessage.USER_ROLE, "Yes. But want to hug you, can I?")
         .build()).getMessage().getContent();
 ```
