@@ -18,24 +18,53 @@ import java.nio.charset.StandardCharsets;
 public class LlamaConnection {
     private final String url;
 
+    /**
+     * Creates a new connection with Llama API
+     * @param url URL of llama API using this format (protocol://direction:port)
+     */
     public LlamaConnection(String url) {
         this.url = url;
     }
 
+    @SuppressWarnings("deprecation")
     private URL buildUri(String service) throws IOException{
         return new URL(url + service);
     }
 
+    /**
+     * Make a fetch to llama API with the specified request info.
+     * The provided LlamaRequest must have a valid model name.
+     * You can build it using "LlamaPromptsBuilder" or "LlamaDialogsBuilder"
+     *
+     * @see com.asierso.llamaapi.builder.LlamaPromptsBuilder
+     * @see com.asierso.llamaapi.builder.LlamaDialogsBuilder
+     * @param req Request data to send
+     * @return Llama API response
+     * @throws LlamaConnectionException Errors at connection or malformed Llama request
+     */
     public LlamaResponse fetch(LlamaRequest req) throws LlamaConnectionException {
         return fetchRealtime(req,null);
     }
 
+    /**
+     * Make a fetch to llama API with the specified request info and
+     * execute callback every time that API response is recieved (stream).
+     * The provided LlamaRequest must have a valid model name.
+     * You can build it using "LlamaPromptsBuilder" or "LlamaDialogsBuilder"
+     *
+     * @see com.asierso.llamaapi.builder.LlamaPromptsBuilder
+     * @see com.asierso.llamaapi.builder.LlamaDialogsBuilder
+     * @param req Request data to send
+     * @param rtCallback Realtime callback method that will be executed
+     * @return Llama API response
+     * @throws LlamaConnectionException Errors at connection or malformed Llama request
+     */
     public LlamaResponse fetchRealtime(LlamaRequest req, RealtimeResponseCallback rtCallback) throws LlamaConnectionException {
         if(req.getModel().isBlank())
             throw new LlamaConnectionException(404,"Model not found");
 
         //Llama response objects
-        LlamaResponse llres = null;
+        LlamaResponse llamaResponse = null;
         StringBuilder response = new StringBuilder();
         StringBuilder message = new StringBuilder();
         String messageRole = null;
@@ -44,7 +73,7 @@ public class LlamaConnection {
             //Open http connection with llama server
             HttpURLConnection con = getHttpURLConnection(req);
 
-            //If success, process recieved data
+            //If success, process data
             if (con.getResponseCode() == 200) {
                 BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8));
                 String responseLine;
@@ -52,17 +81,17 @@ public class LlamaConnection {
                 while ((responseLine = in.readLine()) != null) {
 
                     //Create json format from line response and execute realtime response if proceed
-                    llres = new Gson().fromJson(responseLine, LlamaResponse.class);
+                    llamaResponse = new Gson().fromJson(responseLine, LlamaResponse.class);
                     if (rtCallback != null)
-                        rtCallback.run(llres);
+                        rtCallback.run(llamaResponse);
 
                     //Create fully sentence for messages and responses (the active service)
-                    if(llres.getResponse() != null)
-                        response.append(llres.getResponse());
+                    if(llamaResponse.getResponse() != null)
+                        response.append(llamaResponse.getResponse());
 
-                    if(llres.getMessage() != null) {
-                        message.append(llres.getMessage().getContent());
-                        messageRole = llres.getMessage().getRole();
+                    if(llamaResponse.getMessage() != null) {
+                        message.append(llamaResponse.getMessage().getContent());
+                        messageRole = llamaResponse.getMessage().getRole();
                     }
                 }
                 in.close();
@@ -77,8 +106,8 @@ public class LlamaConnection {
         //Create fully response with some headers data
         LlamaResponse fullyResponse = null;
 
-        if(llres != null)
-            fullyResponse = new LlamaResponse(llres.getModel(),response.toString(),llres.isDone(),messageRole == null? null : new LlamaMessage(messageRole,message.toString()));
+        if(llamaResponse != null)
+            fullyResponse = new LlamaResponse(llamaResponse.getModel(),response.toString(),llamaResponse.isDone(),messageRole == null? null : new LlamaMessage(messageRole,message.toString()));
         return fullyResponse;
     }
 
@@ -91,14 +120,15 @@ public class LlamaConnection {
                 buildUri(CHAT_SERVICE).openConnection() :
                 buildUri(GENERATION_SERVICE).openConnection());
 
+        //Adjust connection settings to use REST
         con.setRequestMethod("POST");
         con.setRequestProperty("Content-Type", "application/json");
         con.setDoOutput(true);
 
-        //Prepare input
-        //String jsonInput = "{\"model\":\"" + req.getModel() + "\",\"prompt\":\"" + req.getPrompt() + "\"}";
+        //Prepare json request to send
         String jsonInput = new Gson().toJson(req);
 
+        //Write json request on stream
         try (OutputStream os = con.getOutputStream()) {
             byte[] input = jsonInput.getBytes(StandardCharsets.UTF_8);
             os.write(input, 0, input.length);

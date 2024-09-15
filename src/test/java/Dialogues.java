@@ -1,6 +1,5 @@
 import com.asierso.llamaapi.LlamaConnection;
 import com.asierso.llamaapi.builder.LlamaDialogsBuilder;
-import com.asierso.llamaapi.builder.LlamaPromptsBuilder;
 import com.asierso.llamaapi.builder.LlamaRequestBaseBuilder;
 import com.asierso.llamaapi.handlers.LlamaConnectionException;
 import com.asierso.llamaapi.models.LlamaMessage;
