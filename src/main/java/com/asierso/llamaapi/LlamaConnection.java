@@ -130,6 +130,11 @@ public class LlamaConnection {
         return fullyResponse;
     }
     
+    /**
+     * Make a fetch to llama API to get a list with the names of available models
+     * @return Available models list
+     * @throws LlamaConnectionException Errors at connection or malformed Llama request
+     */
     public List<AIModel> getModels() throws LlamaConnectionException {
     	ModelList models = null;
     	try {
