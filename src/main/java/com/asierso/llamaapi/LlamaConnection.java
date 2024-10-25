@@ -1,9 +1,11 @@
 package com.asierso.llamaapi;
 
 import com.asierso.llamaapi.handlers.LlamaConnectionException;
+import com.asierso.llamaapi.models.AIModel;
 import com.asierso.llamaapi.models.LlamaMessage;
 import com.asierso.llamaapi.models.LlamaRequest;
 import com.asierso.llamaapi.models.LlamaResponse;
+import com.asierso.llamaapi.models.ModelList;
 import com.asierso.llamaapi.handlers.RealtimeResponseCallback;
 import com.google.gson.Gson;
 
@@ -14,9 +16,26 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 public class LlamaConnection {
     private final String url;
+    private enum ServiceType { 
+    	
+    	GET {
+    		@Override
+    		public String toString() {
+    			return "GET";
+    		}
+    	},
+    	
+    	POST {
+    		@Override
+    		public String toString() {
+    			return "GET";
+    		}
+    	}
+    }
 
     /**
      * Creates a new connection with Llama API
@@ -71,7 +90,7 @@ public class LlamaConnection {
 
         try {
             //Open http connection with llama server
-            HttpURLConnection con = getHttpURLConnection(req);
+            HttpURLConnection con = startServiceWith(req);
 
             //If success, process data
             if (con.getResponseCode() == 200) {
@@ -110,21 +129,59 @@ public class LlamaConnection {
             fullyResponse = new LlamaResponse(llamaResponse.getModel(),response.toString(),llamaResponse.isDone(),messageRole == null? null : new LlamaMessage(messageRole,message.toString()));
         return fullyResponse;
     }
+    
+    public List<AIModel> getModels() throws LlamaConnectionException {
+    	ModelList models = null;
+    	try {
+    		//Fetch models api
+    		HttpURLConnection con = getHttpURLConnection("/api/tags",ServiceType.GET);
+    		//If success, process data
+            if (con.getResponseCode() == 200) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream(), StandardCharsets.UTF_8));
+                String responseLine;
+                //Read line per line
+                while ((responseLine = in.readLine()) != null) {
+                    //Create json format from models
+                    models = new Gson().fromJson(responseLine, ModelList.class);
+                    
+                }
+                in.close();
+            } else {
+                //Throw error (some error at the connection with llama)
+                throw new LlamaConnectionException(con.getResponseCode(), con.getResponseMessage());
+            }
+    	}catch (IOException e) {
+    		throw new LlamaConnectionException(0,e.getMessage());
+    	}
+    	
+    	if(models == null)
+    		return null;
+    	
+    	return models.getModels();
+    }
+    
+    private HttpURLConnection getHttpURLConnection(String service,ServiceType stype) throws IOException {
+        //Get llama service
+        HttpURLConnection con = (HttpURLConnection) buildUri(service).openConnection();
+        
+        
+        //Adjust connection settings to use REST
+        con.setRequestMethod(stype.toString());
+        con.setRequestProperty("Content-Type", "application/json");
+        con.setDoOutput(true);
+        
+        return con;
+    }
 
-    private HttpURLConnection getHttpURLConnection(LlamaRequest req) throws IOException {
+    private HttpURLConnection startServiceWith(LlamaRequest req) throws IOException {
         String GENERATION_SERVICE = "/api/generate";
         String CHAT_SERVICE = "/api/chat";
 
         //Choose llama service to use
-        HttpURLConnection con = (HttpURLConnection) (req.getMessages() != null?
-                buildUri(CHAT_SERVICE).openConnection() :
-                buildUri(GENERATION_SERVICE).openConnection());
-
-        //Adjust connection settings to use REST
-        con.setRequestMethod("POST");
-        con.setRequestProperty("Content-Type", "application/json");
-        con.setDoOutput(true);
-
+        HttpURLConnection con =  getHttpURLConnection(req.getMessages() != null?
+                CHAT_SERVICE :
+                GENERATION_SERVICE,ServiceType.POST);
+        
         //Prepare json request to send
         String jsonInput = new Gson().toJson(req);
 
@@ -133,6 +190,7 @@ public class LlamaConnection {
             byte[] input = jsonInput.getBytes(StandardCharsets.UTF_8);
             os.write(input, 0, input.length);
         }
+        
         return con;
     }
 }

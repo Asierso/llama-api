@@ -1,3 +1,4 @@
+package com.asier.llamaapi.generation;
 import com.asierso.llamaapi.LlamaConnection;
 import com.asierso.llamaapi.builder.LlamaDialogsBuilder;
 import com.asierso.llamaapi.builder.LlamaRequestBaseBuilder;
